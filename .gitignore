@@ -1,0 +1,14 @@
+# Node dependencies
+**/node_modules/
+
+# dotenv
+**/.env
+
+# Vite build
+client/dist/
+
+# macOS system files
+.DS_Store
+
+# Logs
+**/logs/
