@@ -1,0 +1,39 @@
+name: Deploy Backend to EC2 & Frontend to Vercel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  backend:
+    name: Deploy Backend to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: SSH and deploy backend
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@18.217.234.231 << 'EOF'
+            cd ~/asset-tracker/server
+            git pull
+            npm install
+            pm2 restart index.js || pm2 start index.js
+          EOF
+
+  frontend:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Trigger Vercel Deployment
+        run: curl -X POST "https://api.vercel.com/v1/integrations/deploy/prj_DJAjMYXn397dXvpQlFGegfBaDgyM/hnSgbIoM21"
