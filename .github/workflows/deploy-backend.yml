@@ -22,7 +22,7 @@ jobs:
       - name: SSH and deploy backend
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@18.217.234.231 << 'EOF'
-            cd ~/asset-tracker/server
+            cd ~/server
             git pull
             npm install
             pm2 restart index.js || pm2 start index.js
