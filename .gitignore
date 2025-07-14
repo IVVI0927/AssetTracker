@@ -10,5 +10,5 @@ client/dist/
 # macOS system files
 .DS_Store
 
-# Logs
+
 **/logs/
