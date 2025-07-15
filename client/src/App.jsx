@@ -26,7 +26,7 @@ const AssetTracker = () => {
     if (!loggedIn) return;
     const fetchAssets = async () => {
       try {
-        const response = await axios.get(`http://localhost:5050/api/assets?userId=${userId}`);
+        const response = await axios.get(`/api/assets?userId=${userId}`);
         setAssets(response.data);
       } catch (error) {
         console.error('Error loading assets:', error);
@@ -71,14 +71,14 @@ const AssetTracker = () => {
     try {
       if (editingIndex !== null) {
         const assetToUpdate = assets[editingIndex];
-        const response = await axios.put(`http://localhost:5050/api/assets/${assetToUpdate._id}`, newAsset);
+        const response = await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/assets/${assetToUpdate._id}`, newAsset);
         const updatedAssets = [...assets];
         updatedAssets[editingIndex] = response.data;
         setAssets(updatedAssets);
         setEditingIndex(null);
       } else {
-        await axios.post('http://localhost:5050/api/assets', newAsset);
-        const refreshed = await axios.get(`http://localhost:5050/api/assets?userId=${userId}`);
+        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/assets`, newAsset);
+        const refreshed = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/assets?userId=${userId}`);
         setAssets(refreshed.data);
       }
 
@@ -97,7 +97,7 @@ const AssetTracker = () => {
   const handleDelete = async (index) => {
     const assetToDelete = assets[index];
     try {
-      await axios.delete(`http://localhost:5050/api/assets/${assetToDelete._id}`);
+      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/assets/${assetToDelete._id}`);
       setAssets(assets.filter((_, i) => i !== index));
       if (editingIndex === index) setEditingIndex(null);
     } catch (error) {
@@ -206,13 +206,13 @@ const AssetTracker = () => {
         </form>
         <div className="flex gap-4 mb-4">
           <a
-            href="http://localhost:5050/api/assets/export"
+            href={`${import.meta.env.VITE_API_BASE_URL}/api/assets/export`}
             className="bg-green-500 text-white py-1 px-3 rounded hover:bg-green-600 text-sm"
           >
             Export CSV
           </a>
           <a
-            href="http://localhost:5050/api/assets/export-json"
+            href={`${import.meta.env.VITE_API_BASE_URL}/api/assets/export-json`}
             className="bg-purple-500 text-white py-1 px-3 rounded hover:bg-purple-600 text-sm"
           >
             Export JSON

@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
+/* global process */
+import dotenv from 'dotenv';
+dotenv.config();
 
 // ✅ ESM方式模拟出 __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -17,7 +20,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5050',
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:5050',
         changeOrigin: true,
       },
     },
