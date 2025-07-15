@@ -1,5 +1,5 @@
 import Asset from '../models/Asset.js';
-import logger from '../logger/logger.js';
+const logger = require('./logger/logger');
 import { validationResult } from 'express-validator';
 
 export const createAsset = async (req, res) => {

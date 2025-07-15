@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
-import logger from "./logger/logger.js";
+const logger = require('./logger/logger');
 import morganMiddleware from "./logger/morganMiddleware.js";
 import errorHandler from './middlewares/errorHandler.js';
 import express from "express";

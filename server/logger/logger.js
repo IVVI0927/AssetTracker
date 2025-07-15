@@ -1,4 +1,4 @@
-import winston from 'winston';
+const winston = require('winston');
 
 const logger = winston.createLogger({
   level: 'http',
@@ -11,4 +11,4 @@ const logger = winston.createLogger({
   ],
 });
 
-export default logger;
+module.exports = logger;
