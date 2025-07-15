@@ -43,9 +43,13 @@ const startServer = async () => {
 
     logger.info("✅ MongoDB connected");
 
-    app.listen(PORT, () => {
-      logger.info(`🚀 Server running on http://localhost:${PORT}`);
-    });
+    // app.listen(PORT, () => {
+    //   logger.info(`🚀 Server running on http://localhost:${PORT}`);
+    // });
+    app.listen(process.env.PORT || 5050, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${process.env.PORT || 5050}`);
+});   //允许外部访问
+
   } catch (err) {
     logger.error("❌ Database connection error:", err);
     process.exit(1); // Exit on failure
