@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const assetSchema = new mongoose.Schema({
   name: {
@@ -40,4 +40,4 @@ assetSchema.pre('save', function (next) {
 });
 
 const Asset = mongoose.model('Asset', assetSchema);
-export default Asset;
+module.exports = Asset;

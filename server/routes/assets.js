@@ -1,18 +1,9 @@
-import express from 'express';
-import { body } from 'express-validator';
-import {
-  createAsset,
-  deleteAsset,
-  updateAsset,
-  getAssets,
-  exportCSV,
-  exportJSON,
-  getAssetById
-} from '../controllers/assetController.js';
-
+const express = require('express');
+const { body } = require('express-validator');
+const assetController = require('../controllers/assetController');
 const router = express.Router();
 
-// 校验中间件
+// 验证中间件
 const assetValidationRules = [
   body('name').notEmpty().withMessage('Name is required'),
   body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
@@ -21,24 +12,18 @@ const assetValidationRules = [
 ];
 
 // 创建资产
-router.post('/', assetValidationRules, createAsset);
-
+router.post('/', assetValidationRules, assetController.createAsset);
 // 获取全部资产
-router.get('/', getAssets);
-
+router.get('/', assetController.getAssets);
 // 获取单个资产
-router.get('/:id', getAssetById);
-
+router.get('/:id', assetController.getAssetById);
 // 更新资产
-router.put('/:id', updateAsset);
-
+router.put('/:id', assetController.updateAsset);
 // 删除资产
-router.delete('/:id', deleteAsset);
-
+router.delete('/:id', assetController.deleteAsset);
 // 导出 CSV
-router.get('/export', exportCSV);
-
+router.get('/export', assetController.exportCSV);
 // 导出 JSON
-router.get('/export-json', exportJSON);
+router.get('/export-json', assetController.exportJSON);
 
-export default router;
+module.exports = router;

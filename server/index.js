@@ -1,12 +1,12 @@
-import dotenv from "dotenv";
+const dotenv = require("dotenv");
 dotenv.config();
 const logger = require('./logger/logger');
-import morganMiddleware from "./logger/morganMiddleware.js";
-import errorHandler from './middlewares/errorHandler.js';
-import express from "express";
-import mongoose from "mongoose";
-import cors from "cors";
-import rateLimit from 'express-rate-limit';
+const morganMiddleware = require("./logger/morganMiddleware");
+const errorHandler = require('./middlewares/errorHandler');
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
@@ -25,7 +25,7 @@ app.use(express.json());
 app.use(morganMiddleware); // ✅ 使用 morgan 记录 HTTP 请求日志
 
 //注册/挂载这个路由
-import assetRoutes from './routes/assets.js';
+const assetRoutes = require('./routes/assets');
 app.use('/api/assets', assetRoutes);
 
 // Test route

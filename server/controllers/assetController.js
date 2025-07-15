@@ -1,8 +1,8 @@
-import Asset from '../models/Asset.js';
-const logger = require('./logger/logger');
-import { validationResult } from 'express-validator';
+const Asset = require('../models/Asset');
+const logger = require('../logger/logger');
+const { validationResult } = require('express-validator');
 
-export const createAsset = async (req, res) => {
+const createAsset = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn(`⚠️ Validation failed: ${JSON.stringify(errors.array())}`);
@@ -23,7 +23,7 @@ export const createAsset = async (req, res) => {
   }
 };
 
-export const deleteAsset = async (req, res) => {
+const deleteAsset = async (req, res) => {
   logger.info(`🗑️ Delete request: ID=${req.params.id}`);
   try {
     const deleted = await Asset.findByIdAndDelete(req.params.id);
@@ -39,7 +39,7 @@ export const deleteAsset = async (req, res) => {
   }
 };
 
-export const updateAsset = async (req, res) => {
+const updateAsset = async (req, res) => {
   const { name, price, date } = req.body;
   logger.info(`✏️ Update request: ID=${req.params.id}`);
 
@@ -63,7 +63,7 @@ export const updateAsset = async (req, res) => {
   }
 };
 
-export const getAssets = async (req, res) => {
+const getAssets = async (req, res) => {
   logger.info(`📥 GET /api/assets requested`);
   try {
     const userId = req.query.userId;
@@ -75,7 +75,7 @@ export const getAssets = async (req, res) => {
   }
 };
 
-export const exportCSV = async (req, res) => {
+const exportCSV = async (req, res) => {
   logger.info('📤 Exporting assets data...');
   try {
     const assets = await Asset.find();
@@ -99,7 +99,7 @@ export const exportCSV = async (req, res) => {
   }
 };
 
-export const exportJSON = async (req, res) => {
+const exportJSON = async (req, res) => {
   try {
     const assets = await Asset.find();
     res.setHeader('Content-Disposition', 'attachment; filename=assets.json');
@@ -111,7 +111,7 @@ export const exportJSON = async (req, res) => {
   }
 };
 
-export const getAssetById = async (req, res) => {
+const getAssetById = async (req, res) => {
   logger.info(`🔍 GET asset by ID: ${req.params.id}`);
   try {
     const asset = await Asset.findById(req.params.id);
@@ -124,4 +124,14 @@ export const getAssetById = async (req, res) => {
     logger.error(`❌ Failed to fetch asset by ID: ${err.message}`);
     res.status(500).json({ message: 'Failed to fetch asset' });
   }
+};
+
+module.exports = {
+  createAsset,
+  deleteAsset,
+  updateAsset,
+  getAssets,
+  exportCSV,
+  exportJSON,
+  getAssetById
 };
