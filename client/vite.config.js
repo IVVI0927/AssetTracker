@@ -3,8 +3,6 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
 /* global process */
-import dotenv from 'dotenv';
-dotenv.config();
 
 // ✅ ESM方式模拟出 __dirname
 const __filename = fileURLToPath(import.meta.url);
