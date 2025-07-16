@@ -22,17 +22,19 @@ jobs:
       - name: SSH and deploy backend
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@18.217.234.231 << 'EOF'
+            set -e
+
             cd /home/ubuntu
-                  # 如果 server 文件夹不存在 git clone；否则 git pull
-                  if [ ! -d "AssetTracker" ]; then
-                    git clone https://github.com/IVVI0927/AssetTracker.git
-                  else
-                    cd AssetTracker && git pull
-                  fi
+
+            # 删除旧目录，重新克隆
+            rm -rf AssetTracker
+            git clone https://github.com/IVVI0927/AssetTracker.git
 
             cd AssetTracker/server
             npm install
-            pm2 restart index.js || pm2 start index.js
+
+            # 启动或重启 PM2 服务
+            pm2 start index.js --update-env || pm2 restart index.js --update-env
           EOF
 
   frontend:
