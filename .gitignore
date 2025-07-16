@@ -1,9 +1,6 @@
 # Node dependencies
 **/node_modules/
 
-# dotenv
-**/.env
-
 # Vite build
 client/dist/
 

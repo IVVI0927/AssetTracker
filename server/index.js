@@ -1,5 +1,4 @@
-const dotenv = require("dotenv");
-dotenv.config();
+require('dotenv').config(); // 顶部加载 .env
 const logger = require('./logger/logger');
 const morganMiddleware = require("./logger/morganMiddleware");
 const errorHandler = require('./middlewares/errorHandler');
@@ -43,12 +42,9 @@ const startServer = async () => {
 
     logger.info("✅ MongoDB connected");
 
-    // app.listen(PORT, () => {
-    //   logger.info(`🚀 Server running on http://localhost:${PORT}`);
-    // });
-    app.listen(process.env.PORT || 5050, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${process.env.PORT || 5050}`);
-});   //允许外部访问
+    app.listen(PORT, '0.0.0.0', () => {
+      logger.info(`🚀 Server running on http://0.0.0.0:${PORT}`);
+    });   //允许外部访问
 
   } catch (err) {
     logger.error("❌ Database connection error:", err);
