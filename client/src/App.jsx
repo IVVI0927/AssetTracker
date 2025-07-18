@@ -8,10 +8,15 @@ import {
   Legend
 } from 'chart.js';
 import './App.css';
-
+//是全局配置，只需要注册一次，写在组件外面
 ChartJS.register(ArcElement, Tooltip, Legend);
 
+// 移动 useState 到组件内部，避免 React Hook 调用顺序错误
+
 const AssetTracker = () => {
+  const storedUser = localStorage.getItem('username');
+  const [username, setUsername] = useState(storedUser || '');
+
   const [userId, setUserId] = useState('');
   const [loggedIn, setLoggedIn] = useState(false);
   const [assets, setAssets] = useState([]);
@@ -22,6 +27,7 @@ const AssetTracker = () => {
   const [nameError, setNameError] = useState(false);
   const [dateError, setDateError] = useState(false);
   const [formError, setFormError] = useState('');
+  const [backendStatus, setBackendStatus] = useState("checking");
 
   useEffect(() => {
     if (!loggedIn) return;
@@ -36,6 +42,30 @@ const AssetTracker = () => {
 
     fetchAssets();
   }, [loggedIn, userId]);
+
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('username');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setUserId(savedUsername);
+      setLoggedIn(true);
+    }
+    const checkBackend = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/health`);
+        if (res.status === 200) {
+          setBackendStatus("connected");
+        } else {
+          setBackendStatus("error");
+        }
+      } catch (err) {
+        console.error('Backend health check failed:', err);
+        setBackendStatus("error");
+      }
+    };
+
+    checkBackend();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -144,7 +174,11 @@ const AssetTracker = () => {
               className="login-input"
             />
             <button
-              onClick={() => setLoggedIn(true)}
+              onClick={() => {
+                setLoggedIn(true);
+                setUsername(userId);
+                localStorage.setItem('username', userId);
+              }}
               disabled={!userId.trim()}
               className="login-button"
             >
@@ -153,17 +187,24 @@ const AssetTracker = () => {
           </div>
         ) : (
           <div className="logout-bar">
-            <p className="welcome-text">Welcome, <span className="user-name">{userId}</span></p>
+            <p className="welcome-text">Welcome, <span className="user-name">{username}</span></p>
             <button
               onClick={() => {
                 setLoggedIn(false);
                 setUserId('');
+                setUsername('');
                 setAssets([]);
+                localStorage.removeItem('username');
               }}
               className="logout-button"
             >
               Logout
             </button>
+            <p className="backend-status">
+              Backend Status: <span style={{ color: backendStatus === "connected" ? "green" : "red" }}>
+                {backendStatus}
+              </span>
+            </p>
           </div>
         )}
         <h1 className="app-title">Asset Tracker</h1>
@@ -215,16 +256,11 @@ const AssetTracker = () => {
           </div>
         </form>
         <div className="export-buttons" style={{ display: 'flex', gap: '1rem' }}>
-          <a
-            href={`${import.meta.env.VITE_API_BASE_URL}/api/assets/export`}
-            className="export-csv"
-          >
-            Export CSV  
+          {/* 点击链接时浏览器将自动请求 GET /api/assets/export */}
+          <a href={`/api/assets/export?userId=${userId}`} className="export-csv">
+            Export CSV
           </a>
-          <a
-            href={`${import.meta.env.VITE_API_BASE_URL}/api/assets/export-json`}
-            className="export-json"
-          >
+          <a href={`/api/assets/export-json?userId=${userId}`} className="export-json">
             Export JSON
           </a>
         </div>
