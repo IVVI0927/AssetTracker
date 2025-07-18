@@ -1,4 +1,10 @@
+console.log('✅ 当前 API 地址 =', process.env.VITE_API_BASE_URL);
 /* global process */
+
+import { config } from 'dotenv';
+import { resolve } from 'path';
+// 手动加载 .env.development 文件
+config({ path: resolve(__dirname, '.env.development') });
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -19,7 +25,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: process.env.VITE_API_BASE_URL || 'http://localhost:5050',
+        target: process.env.VITE_API_BASE_URL,
+        //target: 'http://18.217.234.231:5050',  //先写死
         changeOrigin: true,
         // 可选：添加更多代理配置
         secure: false, // 如果是 https 且证书有问题

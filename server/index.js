@@ -1,4 +1,4 @@
-require('dotenv').config(); // 顶部加载 .env
+require('dotenv').config({ path: __dirname + '/.env' });
 const logger = require('./logger/logger');
 const morganMiddleware = require("./logger/morganMiddleware");
 const errorHandler = require('./middlewares/errorHandler');
@@ -27,9 +27,18 @@ app.use(morganMiddleware); // ✅ 使用 morgan 记录 HTTP 请求日志
 const assetRoutes = require('./routes/assets');
 app.use('/api/assets', assetRoutes);
 
+// 用户认证相关路由
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
 // Test route
 app.get("/", (req, res) => {
   res.send("API is running 🎉");
+});
+
+//前端检测后端连接状态
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 // MongoDB connect and server start

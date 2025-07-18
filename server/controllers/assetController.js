@@ -1,6 +1,8 @@
 const Asset = require('../models/Asset');
 const logger = require('../logger/logger');
 const { validationResult } = require('express-validator');
+const { useId } = require('react');
+const { Parser } = require('json2csv'); //打印错误日志
 
 const createAsset = async (req, res) => {
   const errors = validationResult(req);
@@ -63,22 +65,42 @@ const updateAsset = async (req, res) => {
   }
 };
 
+// const getAssets = async (req, res) => {
+//   logger.info(`📥 GET /api/assets requested`);
+//   try {
+//     const userId = req.query.userId;
+//     const assets = userId ? await Asset.find({ userId }) : await Asset.find();
+//     res.json(assets);
+//   } catch (err) {
+//     logger.error(`❌ GET /api/assets failed: ${err.message}`);
+//     res.status(500).json({ error: err.message });
+//   }
+// };
+
 const getAssets = async (req, res) => {
-  logger.info(`📥 GET /api/assets requested`);
   try {
     const userId = req.query.userId;
-    const assets = userId ? await Asset.find({ userId }) : await Asset.find();
+    console.log('🧪 userId:', userId);  // ✅ 打印 userId
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const assets = await Asset.find({ userId });
+    console.log('📦 assets:', assets);  // ✅ 打印查询结果
     res.json(assets);
   } catch (err) {
-    logger.error(`❌ GET /api/assets failed: ${err.message}`);
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching assets:', err);  // ❗ 查看真实报错信息
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
+//这个功能先不管，按钮已经删掉了
 const exportCSV = async (req, res) => {
   logger.info('📤 Exporting assets data...');
   try {
-    const assets = await Asset.find();
+    const userId = req.query.userId;
+    const assets = await Asset.find({ userId });
 
     const csvHeader = 'Name,Price,Date,DaysUsed,DailyCost\n';
     const csvRows = assets.map((asset) => {
@@ -101,7 +123,8 @@ const exportCSV = async (req, res) => {
 
 const exportJSON = async (req, res) => {
   try {
-    const assets = await Asset.find();
+    const userId = req.query.userId;
+    const assets = await Asset.find({ userId });
     res.setHeader('Content-Disposition', 'attachment; filename=assets.json');
     res.setHeader('Content-Type', 'application/json');
     res.status(200).json(assets);
@@ -121,10 +144,37 @@ const getAssetById = async (req, res) => {
     }
     res.json(asset);
   } catch (err) {
-    logger.error(`❌ Failed to fetch asset by ID: ${err.message}`);
+    logger.error('❌ Failed to fetch asset by ID:', err); //显示堆栈信息
     res.status(500).json({ message: 'Failed to fetch asset' });
   }
 };
+
+const exportAssets = async (req, res) => {
+  console.log("✅ 导出 CSV 被调用了，收到参数：", req.query);
+  try {
+    const userId = req.query.userId;
+    console.log('EXPORT: userId =', userId); // ✅ 调试用
+
+    const assets = await Asset.find({ userId });
+    console.log('EXPORT: assets count =', assets.length); // ✅ 调试用
+
+    if (!assets.length) {
+      return res.status(404).json({ message: "No assets found" });
+    }
+
+    const fields = ['name', 'price', 'date'];
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(assets);
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment('assets.csv');
+    res.send(csv);
+  } catch (err) {
+    console.error('EXPORT error:', err); // ✅ 调试用
+    return res.status(500).json({ message: "Failed to fetch asset" });
+  }
+};
+
 
 module.exports = {
   createAsset,
@@ -133,5 +183,6 @@ module.exports = {
   getAssets,
   exportCSV,
   exportJSON,
-  getAssetById
+  getAssetById,
+  exportAssets
 };

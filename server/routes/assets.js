@@ -2,6 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const assetController = require('../controllers/assetController');
 const router = express.Router();
+const { exportAssets } = require('../controllers/assetController');
 
 // 验证中间件
 const assetValidationRules = [
@@ -25,5 +26,19 @@ router.delete('/:id', assetController.deleteAsset);
 router.get('/export', assetController.exportCSV);
 // 导出 JSON
 router.get('/export-json', assetController.exportJSON);
+//检查用
+router.get('/export', assetController.exportAssets);
+
+
+const verifyToken = require('../middlewares/auth'); // 注意路径和中间件文件名
+router.get('/', verifyToken, async (req, res) => {
+  // 现在 req.userId 已经是通过 token 验证后的 userId 了
+  const userId = req.query.userId;
+
+  if (userId !== req.userId) {
+    return res.status(403).json({ message: 'Unauthorized access' });
+  }
+  // 然后继续查询数据库
+});
 
 module.exports = router;

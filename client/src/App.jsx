@@ -33,8 +33,12 @@ const AssetTracker = () => {
     if (!loggedIn) return;
     const fetchAssets = async () => {
       try {
-        const response = await axios.get(`/api/assets?userId=${userId}`);
-        setAssets(response.data);
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/assets?userId=${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }); setAssets(response.data);
       } catch (error) {
         console.error('Error loading assets:', error);
       }
@@ -174,10 +178,23 @@ const AssetTracker = () => {
               className="login-input"
             />
             <button
-              onClick={() => {
-                setLoggedIn(true);
-                setUsername(userId);
-                localStorage.setItem('username', userId);
+              onClick={async () => {
+                try {
+                  const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
+                    username: userId,
+                    password: 'dummy'  // 如果没做密码校验，这里可以是 placeholder
+                  });
+                  const { token } = res.data;
+
+                  localStorage.setItem('username', userId);
+                  localStorage.setItem('token', token);
+
+                  setLoggedIn(true);
+                  setUsername(userId);
+                } catch (err) {
+                  console.error('Login failed:', err);
+                  alert('Login failed');
+                }
               }}
               disabled={!userId.trim()}
               className="login-button"
@@ -255,15 +272,7 @@ const AssetTracker = () => {
             </button>
           </div>
         </form>
-        <div className="export-buttons" style={{ display: 'flex', gap: '1rem' }}>
-          {/* 点击链接时浏览器将自动请求 GET /api/assets/export */}
-          <a href={`/api/assets/export?userId=${userId}`} className="export-csv">
-            Export CSV
-          </a>
-          <a href={`/api/assets/export-json?userId=${userId}`} className="export-json">
-            Export JSON
-          </a>
-        </div>
+
         <button
           className="sort-toggle"
           onClick={() => setSortByCost(!sortByCost)}

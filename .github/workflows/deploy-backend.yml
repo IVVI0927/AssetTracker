@@ -33,6 +33,9 @@ jobs:
             cd AssetTracker/server
             npm install
 
+            # 👉 加上这行：复制 .env.production 到 .env
+            cp ../client/.env.production ../client/.env
+            
             # 启动或重启 PM2 服务
             pm2 start index.js --update-env || pm2 restart index.js --update-env
           EOF
