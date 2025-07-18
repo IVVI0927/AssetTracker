@@ -7,6 +7,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
+import './App.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -112,30 +113,6 @@ const AssetTracker = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (!loggedIn) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-start justify-start p-8">
-        <div className="bg-white p-6 rounded shadow w-full max-w-xl">
-          <h2 className="text-xl font-semibold mb-4 text-center text-blue-600">Login</h2>
-          <input
-            type="text"
-            placeholder="Enter your username"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            className="mb-4 w-full border rounded px-3 py-2"
-          />
-          <button
-            onClick={() => setLoggedIn(true)}
-            disabled={!userId.trim()}
-            className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const sortedAssets = sortByCost
     ? [...assets].sort((a, b) => b.dailyCost - a.dailyCost)
     : assets;
@@ -154,14 +131,47 @@ const AssetTracker = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-blue-600">Asset Tracker</h1>
+    <div className="App">
+      <div className="login-container">
+        {!loggedIn ? (
+          <div className="login-box">
+            <h2 className="login-title">Login</h2>
+            <input
+              type="text"
+              placeholder="Enter your username"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="login-input"
+            />
+            <button
+              onClick={() => setLoggedIn(true)}
+              disabled={!userId.trim()}
+              className="login-button"
+            >
+              Login
+            </button>
+          </div>
+        ) : (
+          <div className="logout-bar">
+            <p className="welcome-text">Welcome, <span className="user-name">{userId}</span></p>
+            <button
+              onClick={() => {
+                setLoggedIn(false);
+                setUserId('');
+                setAssets([]);
+              }}
+              className="logout-button"
+            >
+              Logout
+            </button>
+          </div>
+        )}
+        <h1 className="app-title">Asset Tracker</h1>
 
-        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {formError && <div className="text-red-600 text-sm mb-2 animate-pulse">{formError}</div>}
+        <form onSubmit={handleSubmit} className="asset-form">
+          {formError && <div className="form-error">{formError}</div>}
           {error && (
-            <div className="bg-red-100 text-red-700 p-2 rounded mb-2 text-sm">
+            <div className="error-message">
               {error}
             </div>
           )}
@@ -171,9 +181,9 @@ const AssetTracker = () => {
               value={form.name}
               onChange={handleChange}
               placeholder="Item Name"
-              className={`w-full border rounded px-3 py-2 ${nameError ? 'border-red-500 animate-pulse' : ''}`}
+              className={nameError ? 'error-border' : 'form-input'}
             />
-            {nameError && <p className="text-red-500 text-xs mt-1">Name is required</p>}
+            {nameError && <p className="field-error">Name is required</p>}
           </div>
           <div>
             <input
@@ -182,7 +192,7 @@ const AssetTracker = () => {
               onChange={handleChange}
               placeholder="Price (¥)"
               type="number"
-              className="w-full border rounded px-3 py-2"
+              className="form-input"
             />
           </div>
           <div>
@@ -191,62 +201,62 @@ const AssetTracker = () => {
               value={form.date}
               onChange={handleChange}
               type="date"
-              className={`w-full border rounded px-3 py-2 ${dateError ? 'border-red-500 animate-pulse' : ''}`}
+              className={dateError ? 'error-border' : 'form-input'}
             />
-            {dateError && <p className="text-red-500 text-xs mt-1">Invalid date</p>}
+            {dateError && <p className="field-error">Invalid date</p>}
           </div>
-          <div className="sm:col-span-3">
+          <div className="form-submit-container">
             <button
               type="submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              className="form-submit"
             >
               {editingIndex !== null ? 'Update Asset' : 'Add Asset'}
             </button>
           </div>
         </form>
-        <div className="flex gap-4 mb-4">
+        <div className="export-buttons" style={{ display: 'flex', gap: '1rem' }}>
           <a
             href={`${import.meta.env.VITE_API_BASE_URL}/api/assets/export`}
-            className="bg-green-500 text-white py-1 px-3 rounded hover:bg-green-600 text-sm"
+            className="export-csv"
           >
-            Export CSV
+            Export CSV  
           </a>
           <a
             href={`${import.meta.env.VITE_API_BASE_URL}/api/assets/export-json`}
-            className="bg-purple-500 text-white py-1 px-3 rounded hover:bg-purple-600 text-sm"
+            className="export-json"
           >
             Export JSON
           </a>
         </div>
         <button
-          className="mb-4 text-sm text-blue-500 hover:underline"
+          className="sort-toggle"
           onClick={() => setSortByCost(!sortByCost)}
         >
           Sort by Daily Cost {sortByCost ? '(On)' : '(Off)'}
         </button>
 
-        <div className="space-y-4">
+        <div className="asset-list">
           {sortedAssets.map((item, index) => (
-            <div key={index} className="bg-white p-4 rounded-lg shadow flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <div key={index} className="asset-card">
               <div>
-                <div className="font-bold text-lg">{item.name}</div>
-                <div className="text-sm text-gray-600">
+                <div className="asset-name">{item.name}</div>
+                <div className="asset-details">
                   ¥{item.price.toFixed(0)} | {item.daysUsed} 天
-                  <span className="ml-2 text-blue-600 font-semibold">
+                  <span className="daily-cost">
                     {typeof item.dailyCost === 'number' && !isNaN(item.dailyCost)
                       ? `¥${item.dailyCost.toFixed(2)}/天`
                       : 'N/A'}
                   </span>
                 </div>
               </div>
-              <div className="text-xs text-gray-500 space-x-2 mt-1">
+              <div className="asset-actions">
                 <button
                   onClick={() => handleEdit(index)}
-                  className="text-blue-500 hover:underline"
+                  className="edit-button"
                 >Edit</button>
                 <button
                   onClick={() => handleDelete(index)}
-                  className="text-red-500 hover:underline"
+                  className="delete-button"
                 >Delete</button>
               </div>
             </div>
@@ -254,9 +264,9 @@ const AssetTracker = () => {
         </div>
 
         {assets.length > 0 && (
-          <div className="bg-white mt-10 p-4 rounded shadow">
-            <h2 className="text-lg font-semibold mb-4 text-gray-700">Spending Breakdown</h2>
-            <div className="max-w-md mx-auto h-[300px]">
+          <div className="chart-section">
+            <h2 className="chart-title">Spending Breakdown</h2>
+            <div className="chart-container">
               <Pie data={pieData} />
             </div>
           </div>

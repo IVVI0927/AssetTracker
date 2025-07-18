@@ -2,12 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="description" content="Track and manage your personal assets effortlessly with AssetTracker." />
+    <!-- Open Graph Protocol，由 Facebook 推广，现已被很多平台（Twitter、LinkedIn、微信等）支持 -->
+    <meta property="og:title" content="AssetTracker" />
+    <meta property="og:description" content="Track and manage your personal assets effortlessly with AssetTracker." />
+    <!-- 告诉平台：当用户分享这个网页时，应该显示哪张图片 -->
+    <meta property="og:image" content="/og-preview.png" />
+    <meta property="og:type" content="website" />
+    <!-- 设置浏览器 tab 页的小图标 -->
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- 为响应式布局（移动端适配必要）设置：控制可视区域，页面宽度应等于设备屏幕宽度，初始缩放比例100%-->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Welcome!</title>
+    <title>AssetTracker | Manage Your Assets Easily</title>
   </head>
   <body>
+    <div id="preloader" style="position:fixed; top:0; left:0; right:0; bottom:0; background:white; display:flex; justify-content:center; align-items:center; z-index:9999;">
+      <div style="border: 4px solid #ccc; border-top-color: #42b983; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+    </div>
+    <style>
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        // 加载动画，在 DOMContentLoaded 事件后自动消失
+        const loader = document.getElementById('preloader');
+        // 把那个“白色转圈圈”的加载动画隐藏掉
+        if (loader) loader.style.display = 'none';
+      });
+    </script>
+     <!-- React 应用的挂载点，React 会把所有的前端页面渲染到这个 <div> 里 -->
     <div id="root"></div>
+     <!-- 用 Vite 启动时引入的入口脚本，告诉浏览器从 main.jsx 启动 React 项目 -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

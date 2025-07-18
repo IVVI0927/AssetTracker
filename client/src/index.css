@@ -1,10 +1,16 @@
-@import "tw-animate-css";
+/* 引入动画插件 @import "tw-animate-css";*/
 
+/* Tailwind 插件扩展语法，用来定义 .dark 模式下的样式应用方式 */
 @custom-variant dark (&:is(.dark *));
 
+/* 重置样式 + 浏览器默认优化 */
 @tailwind base;
+/* 写自定义的组件类 */
 @tailwind components;
+/* 所有原子类都来自这里，例如 bg-white, text-center, rounded */
 @tailwind utilities;
+
+/* 自定义了一整套 CSS 变量的 fallback 默认值，应该是shadcn/ui安装失败后忘记删了 */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -43,6 +49,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* 通过 :root 和 .dark 两套设置来支持亮 / 暗模式切换 */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
