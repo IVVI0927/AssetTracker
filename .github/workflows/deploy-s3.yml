@@ -1,0 +1,66 @@
+name: Deploy Frontend to AWS S3 & CloudFront
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'client/**'
+
+jobs:
+  deploy-frontend-s3:
+    name: Deploy Frontend to S3
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd client
+          npm ci
+
+      - name: Setup production environment
+        run: |
+          cd client
+          echo "VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}" > .env.production
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}" >> .env
+          cp .env.production .env
+
+      - name: Build frontend
+        run: |
+          cd client
+          npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync client/dist/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
+          echo "✅ Frontend deployed to S3"
+
+      - name: Invalidate CloudFront cache
+        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+          echo "✅ CloudFront cache invalidated"
+
+      - name: Deploy to Vercel (Backup)
+        run: |
+          curl -X POST "https://api.vercel.com/v1/integrations/deploy/prj_DJAjMYXn397dXvpQlFGegfBaDgyM/hnSgbIoM21"
+          echo "✅ Backup deployment to Vercel triggered" 

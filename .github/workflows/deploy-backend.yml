@@ -1,9 +1,11 @@
-name: Deploy Backend to EC2 & Frontend to Vercel
+name: Deploy Backend to EC2
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'server/**'
 
 jobs:
   backend:
@@ -12,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.8.0
@@ -33,19 +35,11 @@ jobs:
             cd AssetTracker/server
             npm install
 
-            # 👉 加上这行：复制 .env.production 到 .env
-            cp ../client/.env.production ../client/.env
+            # 设置生产环境变量
+            echo "MONGO_URI=${{ secrets.MONGO_URI }}" > .env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            echo "PORT=5050" >> .env
             
             # 启动或重启 PM2 服务
-            pm2 start index.js --update-env || pm2 restart index.js --update-env
+            pm2 start index.js --name "asset-tracker-server" --update-env || pm2 restart asset-tracker-server --update-env
           EOF
-
-  frontend:
-    name: Deploy Frontend to Vercel
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Trigger Vercel Deployment
-        run: curl -X POST "https://api.vercel.com/v1/integrations/deploy/prj_DJAjMYXn397dXvpQlFGegfBaDgyM/hnSgbIoM21"
