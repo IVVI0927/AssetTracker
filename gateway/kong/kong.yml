@@ -1,0 +1,295 @@
+# Kong API Gateway Configuration - Enterprise Asset Tracking Platform
+#
+# Purpose: Centralized API gateway for microservices orchestration and management.
+# Features:
+# - Service discovery and routing
+# - Authentication and authorization
+# - Rate limiting and throttling
+# - Request/response transformation
+# - Load balancing with health checks
+# - API versioning and deprecation
+# - Analytics and monitoring
+
+_format_version: "3.0"
+
+services:
+  # User Service
+  - name: user-service
+    url: http://user-service:3002
+    tags: ["microservice", "auth"]
+    routes:
+      - name: user-auth
+        paths: ["/api/auth"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+      - name: user-management
+        paths: ["/api/users"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+      - name: tenant-management
+        paths: ["/api/tenants"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+      - name: role-management
+        paths: ["/api/roles"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+
+  # Asset Service
+  - name: asset-service
+    url: http://asset-service:3001
+    tags: ["microservice", "core"]
+    routes:
+      - name: asset-management
+        paths: ["/api/assets"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+
+  # Audit Service  
+  - name: audit-service
+    url: http://audit-service:3003
+    tags: ["microservice", "compliance"]
+    routes:
+      - name: audit-logs
+        paths: ["/api/audit"]
+        methods: ["GET", "POST"]
+        strip_path: false
+      - name: compliance-reports
+        paths: ["/api/compliance"]
+        methods: ["GET", "POST"]
+        strip_path: false
+
+  # Notification Service
+  - name: notification-service
+    url: http://notification-service:3004
+    tags: ["microservice", "notifications"]
+    routes:
+      - name: notifications
+        paths: ["/api/notifications"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+
+  # Integration Service
+  - name: integration-service
+    url: http://integration-service:3005
+    tags: ["microservice", "integrations"]
+    routes:
+      - name: integrations
+        paths: ["/api/integrations"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+      - name: webhooks
+        paths: ["/api/webhooks"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        strip_path: false
+
+  # Analytics Service
+  - name: analytics-service
+    url: http://analytics-service:3006
+    tags: ["microservice", "analytics"]
+    routes:
+      - name: analytics
+        paths: ["/api/analytics"]
+        methods: ["GET", "POST"]
+        strip_path: false
+      - name: reports
+        paths: ["/api/reports"]
+        methods: ["GET", "POST"]
+        strip_path: false
+
+# Global Plugins
+plugins:
+  # CORS Plugin
+  - name: cors
+    config:
+      origins: ["*"]
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      headers: ["Accept", "Accept-Version", "Content-Length", "Content-MD5", "Content-Type", "Date", "Authorization", "X-Tenant-ID", "X-API-Key"]
+      exposed_headers: ["X-Auth-Token", "X-Request-ID"]
+      credentials: true
+      max_age: 3600
+
+  # Request ID Plugin
+  - name: correlation-id
+    config:
+      header_name: "X-Request-ID"
+      generator: "uuid"
+      echo_downstream: true
+
+  # Security Headers
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-Content-Type-Options: nosniff"
+          - "X-Frame-Options: DENY"
+          - "X-XSS-Protection: 1; mode=block"
+          - "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+          - "Content-Security-Policy: default-src 'self'"
+
+  # Global Rate Limiting
+  - name: rate-limiting
+    config:
+      minute: 1000
+      hour: 10000
+      policy: "redis"
+      redis_host: "redis"
+      redis_port: 6379
+      redis_database: 1
+
+# Consumer Groups for different API access levels
+consumer_groups:
+  - name: enterprise
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 5000
+          hour: 50000
+  
+  - name: professional
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 2000
+          hour: 20000
+  
+  - name: starter
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 500
+          hour: 5000
+
+# Service-specific configurations
+services:
+  # Auth endpoints - stricter rate limiting
+  - name: user-service
+    plugins:
+      - name: rate-limiting
+        route: user-auth
+        config:
+          minute: 10
+          hour: 100
+          policy: "redis"
+          redis_host: "redis"
+          redis_port: 6379
+          redis_database: 1
+      
+      # JWT Authentication for protected routes
+      - name: jwt
+        route: user-management
+        config:
+          uri_param_names: ["jwt"]
+          cookie_names: ["jwt"]
+          header_names: ["authorization"]
+          claims_to_verify: ["exp", "iat"]
+      
+      - name: jwt
+        route: tenant-management
+        config:
+          uri_param_names: ["jwt"]
+          cookie_names: ["jwt"]
+          header_names: ["authorization"]
+          claims_to_verify: ["exp", "iat"]
+
+  # Asset service - require authentication
+  - name: asset-service
+    plugins:
+      - name: jwt
+        config:
+          uri_param_names: ["jwt"]
+          cookie_names: ["jwt"]
+          header_names: ["authorization"]
+          claims_to_verify: ["exp", "iat"]
+      
+      # Request size limiting for file uploads
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10 # 10 MB
+
+  # Audit service - high security
+  - name: audit-service
+    plugins:
+      - name: jwt
+        config:
+          uri_param_names: ["jwt"]
+          cookie_names: ["jwt"]
+          header_names: ["authorization"]
+          claims_to_verify: ["exp", "iat"]
+      
+      # IP restriction for audit logs access
+      - name: ip-restriction
+        route: audit-logs
+        config:
+          allow: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+      
+      # Request logging for compliance
+      - name: file-log
+        config:
+          path: "/var/log/kong/audit-access.log"
+          custom_fields_by_lua:
+            request_id: "kong.ctx.plugin.correlation_id"
+            tenant_id: "kong.request.get_header('X-Tenant-ID')"
+
+  # Analytics service - caching for performance
+  - name: analytics-service
+    plugins:
+      - name: jwt
+        config:
+          uri_param_names: ["jwt"]
+          cookie_names: ["jwt"]  
+          header_names: ["authorization"]
+          claims_to_verify: ["exp", "iat"]
+      
+      # Response caching for analytics data
+      - name: proxy-cache
+        config:
+          response_code: [200]
+          request_method: ["GET"]
+          content_type: ["application/json"]
+          cache_ttl: 300 # 5 minutes
+          strategy: "memory"
+
+# Upstream health checking
+upstreams:
+  - name: user-service-upstream
+    targets:
+      - target: user-service:3002
+        weight: 100
+    healthchecks:
+      active:
+        http_path: "/health"
+        healthy:
+          interval: 30
+          successes: 3
+        unhealthy:
+          interval: 30
+          http_failures: 3
+
+  - name: asset-service-upstream
+    targets:
+      - target: asset-service:3001
+        weight: 100
+    healthchecks:
+      active:
+        http_path: "/health"
+        healthy:
+          interval: 30
+          successes: 3
+        unhealthy:
+          interval: 30
+          http_failures: 3
+
+  - name: audit-service-upstream
+    targets:
+      - target: audit-service:3003
+        weight: 100
+    healthchecks:
+      active:
+        http_path: "/health"
+        healthy:
+          interval: 30
+          successes: 3
+        unhealthy:
+          interval: 30
+          http_failures: 3
