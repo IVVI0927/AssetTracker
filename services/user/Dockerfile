@@ -10,7 +10,7 @@ RUN mkdir -p logs
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Copy source code
 COPY . .

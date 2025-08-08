@@ -1,7 +1,6 @@
 const Asset = require('../models/Asset');
 const logger = require('../logger/logger');
 const { validationResult } = require('express-validator');
-const { useId } = require('react');
 const { Parser } = require('json2csv'); //打印错误日志
 
 const createAsset = async (req, res) => {

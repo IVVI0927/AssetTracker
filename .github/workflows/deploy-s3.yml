@@ -31,9 +31,8 @@ jobs:
       - name: Setup production environment
         run: |
           cd client
-          echo "VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}" > .env.production
-          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}" >> .env
-          cp .env.production .env
+          echo "VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL || 'http://18.217.234.231:5050' }}" > .env.production
+          cat .env.production
 
       - name: Build frontend
         run: |
@@ -49,11 +48,16 @@ jobs:
 
       - name: Deploy to S3
         run: |
+          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
+            echo "❌ Error: S3_BUCKET_NAME secret is not set"
+            echo "Please add S3_BUCKET_NAME to GitHub Secrets"
+            exit 1
+          fi
           aws s3 sync client/dist/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
           echo "✅ Frontend deployed to S3"
 
       - name: Invalidate CloudFront cache
-        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID != '' }}
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
@@ -61,6 +65,11 @@ jobs:
           echo "✅ CloudFront cache invalidated"
 
       - name: Deploy to Vercel (Backup)
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          curl -X POST "https://api.vercel.com/v1/integrations/deploy/prj_DJAjMYXn397dXvpQlFGegfBaDgyM/hnSgbIoM21"
-          echo "✅ Backup deployment to Vercel triggered" 
+          cd client
+          npx vercel --prod --token=$VERCEL_TOKEN || echo "⚠️ Vercel deployment skipped (missing credentials)" 

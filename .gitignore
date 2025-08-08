@@ -62,3 +62,7 @@ AWSCLIV2.pkg
 data/
 mongo-data/
 redis-data/
+
+# others
+docs/
+.claude/

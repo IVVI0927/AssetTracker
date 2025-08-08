@@ -16,30 +16,72 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check SSH Key
+        run: |
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "❌ Error: EC2_SSH_KEY secret is not set"
+            echo "Please add your EC2 private key to GitHub Secrets"
+            exit 1
+          fi
+
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: SSH and deploy backend
+      - name: Check Required Secrets
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@18.217.234.231 << 'EOF'
+          missing_secrets=""
+          [ -z "${{ secrets.MONGO_URI }}" ] && missing_secrets="${missing_secrets} MONGO_URI"
+          [ -z "${{ secrets.JWT_SECRET }}" ] && missing_secrets="${missing_secrets} JWT_SECRET"
+          [ -z "${{ secrets.EC2_HOST }}" ] && EC2_HOST="18.217.234.231" || EC2_HOST="${{ secrets.EC2_HOST }}"
+          
+          if [ -n "$missing_secrets" ]; then
+            echo "❌ Error: Missing required secrets:$missing_secrets"
+            echo "Please add these to GitHub Secrets"
+            exit 1
+          fi
+
+      - name: SSH and deploy backend
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST || '18.217.234.231' }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
+        run: |
+          ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
             set -e
 
+            echo "🔄 Updating code from GitHub..."
             cd /home/ubuntu
 
-            # 删除旧目录，重新克隆
-            rm -rf AssetTracker
-            git clone https://github.com/IVVI0927/AssetTracker.git
+            # Clone or update repository
+            if [ -d "AssetTracker" ]; then
+              cd AssetTracker
+              git pull origin main
+            else
+              git clone https://github.com/IVVI0927/AssetTracker.git
+              cd AssetTracker
+            fi
 
-            cd AssetTracker/server
+            cd server
+            echo "📦 Installing dependencies..."
             npm install
 
-            # 设置生产环境变量
+            # Set production environment variables
             echo "MONGO_URI=${{ secrets.MONGO_URI }}" > .env
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
             echo "PORT=5050" >> .env
+            echo "NODE_ENV=production" >> .env
             
-            # 启动或重启 PM2 服务
+            # Check if PM2 is installed
+            if ! command -v pm2 &> /dev/null; then
+              echo "📥 Installing PM2..."
+              npm install -g pm2
+            fi
+            
+            # Start or restart PM2 service
+            echo "🚀 Starting/Restarting server..."
             pm2 start index.js --name "asset-tracker-server" --update-env || pm2 restart asset-tracker-server --update-env
+            pm2 save
+            
+            echo "✅ Backend deployed successfully!"
           EOF

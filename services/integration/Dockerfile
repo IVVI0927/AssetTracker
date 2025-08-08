@@ -1,8 +1,7 @@
 FROM node:18-alpine
-
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm install --only=production || npm install
 COPY . .
-EXPOSE 3001
+EXPOSE 3005
 CMD ["node", "index.js"]
