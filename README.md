@@ -1,6 +1,6 @@
 # 🏢 Asset Tracker Enterprise
 
-An enterprise-grade asset tracking platform built with microservices architecture, featuring comprehensive compliance, multi-tenancy, advanced analytics, and enterprise-level security.
+An asset tracking platform built with microservices architecture, featuring comprehensive compliance, multi-tenancy, advanced analytics, and security.
 
 ---
 
@@ -269,23 +269,6 @@ Each region includes:
 - SendGrid (email delivery)
 - Twilio (SMS notifications)
 - Firebase (push notifications)
-
----
-
-## 🆘 **Support & Documentation**
-
-- **API Documentation**: `/docs/api/`
-- **Architecture Guides**: `/docs/architecture/`
-- **Runbooks**: `/docs/runbooks/`
-- **Compliance**: `/docs/compliance/`
-
-For enterprise support, contact: enterprise@asset-tracker.com
-
----
-
-## 📄 **License**
-
-Enterprise License - See `LICENSE.md` for details.
 
 ---
 
