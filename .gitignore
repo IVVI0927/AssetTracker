@@ -64,5 +64,5 @@ mongo-data/
 redis-data/
 
 # others
-docs/
 .claude/
+docs/
