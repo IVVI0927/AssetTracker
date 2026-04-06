@@ -7,7 +7,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
-import { Asset, User, ApiResponse } from './types';
+import { User, ApiResponse } from './types';
 import './App.css';
 
 // Register Chart.js components globally
@@ -19,11 +19,6 @@ interface FormData {
   date: string;
 }
 
-interface LoginData {
-  username: string;
-  password: string;
-}
-
 interface AssetResponse {
   _id: string;
   name: string;
@@ -33,6 +28,8 @@ interface AssetResponse {
   daysUsed: number;
   dailyCost: number;
 }
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const AssetTracker: React.FC = () => {
   const storedUser = localStorage.getItem('username');
@@ -57,7 +54,7 @@ const AssetTracker: React.FC = () => {
       try {
         const token = localStorage.getItem('token');
         const response = await axios.get<AssetResponse[]>(
-          `${import.meta.env.VITE_API_BASE_URL}/api/assets?userId=${userId}`,
+          `${API_BASE_URL}/api/assets?userId=${userId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`
@@ -87,7 +84,7 @@ const AssetTracker: React.FC = () => {
 
     const checkBackend = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/health`);
+        const res = await axios.get(`${API_BASE_URL}/health`);
         if (res.status === 200) {
           setBackendStatus('connected');
         } else {
@@ -155,7 +152,7 @@ const AssetTracker: React.FC = () => {
         // Update existing asset
         const assetToUpdate = assets[editingIndex];
         const response = await axios.put<AssetResponse>(
-          `${import.meta.env.VITE_API_BASE_URL}/api/assets/${assetToUpdate._id}`, 
+          `${API_BASE_URL}/api/assets/${assetToUpdate._id}`, 
           newAsset,
           { headers }
         );
@@ -167,14 +164,14 @@ const AssetTracker: React.FC = () => {
       } else {
         // Add new asset
         await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/api/assets`, 
+          `${API_BASE_URL}/api/assets`, 
           newAsset,
           { headers }
         );
         
         // Refresh assets list
         const refreshed = await axios.get<AssetResponse[]>(
-          `${import.meta.env.VITE_API_BASE_URL}/api/assets?userId=${userId}`,
+          `${API_BASE_URL}/api/assets?userId=${userId}`,
           { headers }
         );
         setAssets(refreshed.data);
@@ -209,7 +206,7 @@ const AssetTracker: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.delete(
-        `${import.meta.env.VITE_API_BASE_URL}/api/assets/${assetToDelete._id}`,
+        `${API_BASE_URL}/api/assets/${assetToDelete._id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -251,14 +248,20 @@ const AssetTracker: React.FC = () => {
 
     try {
       const response = await axios.post<ApiResponse<{ token: string; user: User }>>(
-        `${import.meta.env.VITE_API_BASE_URL}/api/auth/login`,
+        `${API_BASE_URL}/api/auth/login`,
         {
           username: userId.trim(),
           password: 'dummy' // This should be replaced with proper authentication
         }
       );
 
-      const { token } = response.data.data!;
+      const token =
+        response.data.data?.token ||
+        (response.data as ApiResponse<{ token: string }> & { token?: string }).token;
+
+      if (!token) {
+        throw new Error('Login response did not contain a token');
+      }
 
       localStorage.setItem('username', userId.trim());
       localStorage.setItem('token', token);
@@ -310,27 +313,27 @@ const AssetTracker: React.FC = () => {
   };
 
   return (
-    <div className=\"App\">
-      <div className=\"login-container\">
+    <div className="App">
+      <div className="login-container">
         {!loggedIn ? (
-          <div className=\"login-box\">
-            <h2 className=\"login-title\">Asset Tracker Login</h2>
+          <div className="login-box">
+            <h2 className="login-title">Asset Tracker Login</h2>
             {error && (
-              <div className=\"error-message\" role=\"alert\">
+              <div className="error-message" role="alert">
                 {error}
               </div>
             )}
             <div>
-              <label htmlFor=\"username-input\" className=\"sr-only\">
+              <label htmlFor="username-input" className="sr-only">
                 Username
               </label>
               <input
-                id=\"username-input\"
-                type=\"text\"
-                placeholder=\"Enter your username\"
+                id="username-input"
+                type="text"
+                placeholder="Enter your username"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                className=\"login-input\"
+                className="login-input"
                 onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                 autoFocus
                 aria-describedby={error ? 'login-error' : undefined}
@@ -339,25 +342,25 @@ const AssetTracker: React.FC = () => {
             <button
               onClick={handleLogin}
               disabled={!userId.trim()}
-              className=\"login-button\"
-              type=\"button\"
+              className="login-button"
+              type="button"
             >
               Login
             </button>
           </div>
         ) : (
-          <div className=\"logout-bar\">
-            <p className=\"welcome-text\">
-              Welcome, <span className=\"user-name\">{username}</span>
+          <div className="logout-bar">
+            <p className="welcome-text">
+              Welcome, <span className="user-name">{username}</span>
             </p>
             <button
               onClick={handleLogout}
-              className=\"logout-button\"
-              type=\"button\"
+              className="logout-button"
+              type="button"
             >
               Logout
             </button>
-            <p className=\"backend-status\">
+            <p className="backend-status">
               Backend Status: {' '}
               <span 
                 className={`status-indicator status-${backendStatus}`}
@@ -374,104 +377,104 @@ const AssetTracker: React.FC = () => {
 
         {loggedIn && (
           <>
-            <h1 className=\"app-title\">Asset Tracker</h1>
+            <h1 className="app-title">Asset Tracker</h1>
 
-            <form onSubmit={handleSubmit} className=\"asset-form\" noValidate>
+            <form onSubmit={handleSubmit} className="asset-form" noValidate>
               <fieldset>
-                <legend className=\"sr-only\">Asset Information</legend>
+                <legend className="sr-only">Asset Information</legend>
                 
                 {formError && (
-                  <div className=\"form-error\" role=\"alert\" id=\"form-error\">
+                  <div className="form-error" role="alert" id="form-error">
                     {formError}
                   </div>
                 )}
                 
                 {error && (
-                  <div className=\"error-message\" role=\"alert\">
+                  <div className="error-message" role="alert">
                     {error}
                   </div>
                 )}
 
-                <div className=\"form-group\">
-                  <label htmlFor=\"asset-name\" className=\"sr-only\">
+                <div className="form-group">
+                  <label htmlFor="asset-name" className="sr-only">
                     Asset Name
                   </label>
                   <input
-                    id=\"asset-name\"
-                    name=\"name\"
+                    id="asset-name"
+                    name="name"
                     value={form.name}
                     onChange={handleChange}
-                    placeholder=\"Asset Name\"
+                    placeholder="Asset Name"
                     className={nameError ? 'error-border form-input' : 'form-input'}
                     aria-invalid={nameError}
                     aria-describedby={nameError ? 'name-error' : undefined}
                     required
                   />
                   {nameError && (
-                    <p className=\"field-error\" id=\"name-error\" role=\"alert\">
+                    <p className="field-error" id="name-error" role="alert">
                       Name is required
                     </p>
                   )}
                 </div>
 
-                <div className=\"form-group\">
-                  <label htmlFor=\"asset-price\" className=\"sr-only\">
+                <div className="form-group">
+                  <label htmlFor="asset-price" className="sr-only">
                     Price in Yuan
                   </label>
                   <input
-                    id=\"asset-price\"
-                    name=\"price\"
+                    id="asset-price"
+                    name="price"
                     value={form.price}
                     onChange={handleChange}
-                    placeholder=\"Price (¥)\"
-                    type=\"number\"
-                    min=\"0\"
-                    step=\"0.01\"
-                    className=\"form-input\"
+                    placeholder="Price (¥)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="form-input"
                     required
                   />
                 </div>
 
-                <div className=\"form-group\">
-                  <label htmlFor=\"asset-date\" className=\"sr-only\">
+                <div className="form-group">
+                  <label htmlFor="asset-date" className="sr-only">
                     Purchase Date
                   </label>
                   <input
-                    id=\"asset-date\"
-                    name=\"date\"
+                    id="asset-date"
+                    name="date"
                     value={form.date}
                     onChange={handleChange}
-                    type=\"date\"
+                    type="date"
                     className={dateError ? 'error-border form-input' : 'form-input'}
                     aria-invalid={dateError}
                     aria-describedby={dateError ? 'date-error' : undefined}
                     required
                   />
                   {dateError && (
-                    <p className=\"field-error\" id=\"date-error\" role=\"alert\">
+                    <p className="field-error" id="date-error" role="alert">
                       Invalid date
                     </p>
                   )}
                 </div>
 
-                <div className=\"form-submit-container\">
+                <div className="form-submit-container">
                   <button
-                    type=\"submit\"
-                    className=\"form-submit\"
+                    type="submit"
+                    className="form-submit"
                     disabled={!form.name || !form.price || !form.date}
                   >
                     {editingIndex !== null ? 'Update Asset' : 'Add Asset'}
                   </button>
                   {editingIndex !== null && (
                     <button
-                      type=\"button\"
+                      type="button"
                       onClick={() => {
                         setEditingIndex(null);
                         setForm({ name: '', price: '', date: '' });
                         setError('');
                         setFormError('');
                       }}
-                      className=\"cancel-button\"
+                      className="cancel-button"
                     >
                       Cancel
                     </button>
@@ -481,11 +484,11 @@ const AssetTracker: React.FC = () => {
             </form>
 
             {assets.length > 0 && (
-              <div className=\"controls\">
+              <div className="controls">
                 <button
-                  className=\"sort-toggle\"
+                  className="sort-toggle"
                   onClick={() => setSortByCost(!sortByCost)}
-                  type=\"button\"
+                  type="button"
                   aria-pressed={sortByCost}
                 >
                   Sort by Daily Cost {sortByCost ? '(Enabled)' : '(Disabled)'}
@@ -493,42 +496,42 @@ const AssetTracker: React.FC = () => {
               </div>
             )}
 
-            <div className=\"asset-list\" role=\"list\" aria-label=\"Asset list\">
+            <div className="asset-list" role="list" aria-label="Asset list">
               {sortedAssets.length === 0 ? (
-                <div className=\"empty-state\">
+                <div className="empty-state">
                   <p>No assets found. Add your first asset above!</p>
                 </div>
               ) : (
                 sortedAssets.map((item, index) => (
                   <div 
                     key={`${item._id}-${index}`} 
-                    className=\"asset-card\"
-                    role=\"listitem\"
+                    className="asset-card"
+                    role="listitem"
                   >
-                    <div className=\"asset-info\">
-                      <div className=\"asset-name\">{item.name}</div>
-                      <div className=\"asset-details\">
+                    <div className="asset-info">
+                      <div className="asset-name">{item.name}</div>
+                      <div className="asset-details">
                         ¥{item.price.toFixed(2)} | {item.daysUsed} days
-                        <span className=\"daily-cost\">
+                        <span className="daily-cost">
                           {typeof item.dailyCost === 'number' && !isNaN(item.dailyCost)
                             ? `¥${item.dailyCost.toFixed(2)}/day`
                             : 'Cost calculation unavailable'}
                         </span>
                       </div>
                     </div>
-                    <div className=\"asset-actions\">
+                    <div className="asset-actions">
                       <button
                         onClick={() => handleEdit(index)}
-                        className=\"edit-button\"
-                        type=\"button\"
+                        className="edit-button"
+                        type="button"
                         aria-label={`Edit ${item.name}`}
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(index)}
-                        className=\"delete-button\"
-                        type=\"button\"
+                        className="delete-button"
+                        type="button"
                         aria-label={`Delete ${item.name}`}
                       >
                         Delete
@@ -540,9 +543,9 @@ const AssetTracker: React.FC = () => {
             </div>
 
             {assets.length > 0 && (
-              <div className=\"chart-section\">
-                <h2 className=\"chart-title\">Spending Breakdown</h2>
-                <div className=\"chart-container\">
+              <div className="chart-section">
+                <h2 className="chart-title">Spending Breakdown</h2>
+                <div className="chart-container">
                   <Pie 
                     data={pieData} 
                     options={{
@@ -564,7 +567,7 @@ const AssetTracker: React.FC = () => {
                         }
                       }
                     }}
-                    aria-label=\"Chart showing asset spending breakdown\"
+                    aria-label="Chart showing asset spending breakdown"
                   />
                 </div>
               </div>

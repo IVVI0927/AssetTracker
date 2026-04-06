@@ -1,11 +1,12 @@
-
 services:
   server:
-    build: ./server
+    build: ./services/asset
     ports:
       - "5050:5050"
     environment:
       - MONGO_URI=mongodb://mongo:27017/asset-tracker
+      - PORT=5050
+      - JWT_SECRET=dev-jwt-secret-change-in-production
     depends_on:
       - mongo
 

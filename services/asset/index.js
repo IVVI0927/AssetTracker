@@ -23,6 +23,7 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
+const useTls = process.env.MONGO_TLS === 'true';
 
 // Middleware
 const limiter = rateLimit({
@@ -60,7 +61,7 @@ const startServer = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 10000,
-      tls: true,
+      tls: useTls,
     });
 
     logger.info("✅ MongoDB connected");

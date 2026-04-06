@@ -81,17 +81,14 @@ gateway/
 
 ### **Development Setup**
 ```bash
-# Initialize the project
-make init
+# Minimal local backend
+./start-local.sh
 
-# Start development environment
-make dev
+# Frontend dev server
+cd client && npm install && npm run dev
 
-# Run tests
-make test
-
-# Deploy locally
-make deploy-local
+# Or build and run the minimal Docker stack
+docker compose up --build
 ```
 
 ### **Enterprise Deployment**
