@@ -1,6 +1,7 @@
 const AuditEvent = require('../models/AuditEvent');
 const ComplianceReport = require('../models/ComplianceReport');
 const logger = require('../utils/logger');
+const eventStreamer = require('../utils/eventStreamer');
 const { validationResult } = require('express-validator');
 
 class AuditController {
@@ -24,10 +25,13 @@ class AuditController {
       const auditEvent = await AuditEvent.createEvent(eventData);
       await auditEvent.save();
 
+      // Stream event to Kafka and other systems
+      await eventStreamer.streamAuditEvent(auditEvent);
+
       // Index in Elasticsearch for search
       await this.indexEventInElasticsearch(auditEvent);
 
-      logger.info('Audit event created', {
+      logger.info('Audit event created and streamed', {
         eventId: auditEvent.eventId,
         eventType: auditEvent.eventType,
         tenantId: auditEvent.tenantId
