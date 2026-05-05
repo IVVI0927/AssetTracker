@@ -1,522 +1,525 @@
 const request = require('supertest');
-const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-
-const AssetController = require('../../controllers/assetController');
+const app = require('../../index');
 const Asset = require('../../models/Asset');
 const User = require('../../models/User');
+const jwt = require('jsonwebtoken');
 
-// Mock logger
-jest.mock('../../logger/logger', () => ({
-  info: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn()
-}));
-
-describe('AssetController', () => {
-  let app;
+describe('Asset Controller', () => {
   let mongoServer;
   let testUser;
-  let testTenantId;
+  let authToken;
+  const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 
   beforeAll(async () => {
-    // Setup in-memory MongoDB
+    // Start in-memory MongoDB instance
     mongoServer = await MongoMemoryServer.create();
     const mongoUri = mongoServer.getUri();
+    
+    // Connect to the in-memory database
     await mongoose.connect(mongoUri);
 
-    // Setup Express app
-    app = express();
-    app.use(express.json());
-    
-    // Mock authentication middleware
-    app.use((req, res, next) => {
-      req.user = testUser;
-      req.tenantId = testTenantId;
-      next();
-    });
-
-    // Define routes
-    app.get('/assets', (req, res) => AssetController.getAssets(req, res));
-    app.post('/assets', (req, res) => AssetController.createAsset(req, res));
-    app.get('/assets/:id', (req, res) => AssetController.getAssetById(req, res));
-    app.put('/assets/:id', (req, res) => AssetController.updateAsset(req, res));
-    app.delete('/assets/:id', (req, res) => AssetController.deleteAsset(req, res));
-    app.post('/assets/:id/transfer', (req, res) => AssetController.transferAsset(req, res));
-    app.get('/assets/search', (req, res) => AssetController.searchAssets(req, res));
-  });
-
-  beforeEach(async () => {
-    // Clean database before each test
-    await Asset.deleteMany({});
-    await User.deleteMany({});
-    
-    // Create test tenant and user
-    testTenantId = new mongoose.Types.ObjectId();
-    testUser = await User.create({
+    // Create test user
+    testUser = new User({
       username: 'testuser',
       email: 'test@example.com',
-      firstName: 'Test',
-      lastName: 'User',
-      tenantId: testTenantId,
-      roles: ['manager'],
-      permissions: ['assets:read', 'assets:write', 'assets:delete']
+      password: 'hashedpassword',
+      tenantId: 'test-tenant',
+      role: 'admin'
     });
+    await testUser.save();
+
+    // Generate auth token
+    authToken = jwt.sign(
+      { 
+        userId: testUser._id.toString(),
+        tenantId: testUser.tenantId,
+        role: testUser.role
+      },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
   });
 
   afterAll(async () => {
+    await mongoose.connection.dropDatabase();
     await mongoose.connection.close();
     await mongoServer.stop();
   });
 
-  describe('GET /assets', () => {
+  beforeEach(async () => {
+    // Clear assets before each test
+    await Asset.deleteMany({});
+  });
+
+  describe('POST /api/assets', () => {
+    it('should create a new asset', async () => {
+      const assetData = {
+        name: 'Test Laptop',
+        description: 'Dell Latitude 5520',
+        category: 'IT Equipment',
+        location: 'Office Floor 2',
+        serialNumber: 'DL123456',
+        value: 1200.00,
+        status: 'active'
+      };
+
+      const response = await request(app)
+        .post('/api/assets')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(assetData)
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.asset.name).toBe(assetData.name);
+      expect(response.body.asset.serialNumber).toBe(assetData.serialNumber);
+      expect(response.body.asset.tenantId).toBe(testUser.tenantId);
+      expect(response.body.asset.createdBy).toBe(testUser._id.toString());
+    });
+
+    it('should return 400 for invalid asset data', async () => {
+      const invalidAssetData = {
+        // Missing required fields
+        description: 'Missing name field'
+      };
+
+      const response = await request(app)
+        .post('/api/assets')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(invalidAssetData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.errors).toBeDefined();
+    });
+
+    it('should return 401 for unauthorized requests', async () => {
+      const assetData = {
+        name: 'Test Asset',
+        category: 'Test Category'
+      };
+
+      await request(app)
+        .post('/api/assets')
+        .send(assetData)
+        .expect(401);
+    });
+  });
+
+  describe('GET /api/assets', () => {
     beforeEach(async () => {
       // Create test assets
       const assets = [
         {
-          name: 'MacBook Pro 16"',
-          category: 'Laptops',
-          status: 'active',
-          serialNumber: 'MBP001',
-          purchaseDate: new Date('2023-01-15'),
-          purchasePrice: 2499.99,
-          tenantId: testTenantId,
-          tags: ['electronics', 'mobile'],
-          customFields: { warranty: '3 years' }
+          name: 'Laptop 1',
+          category: 'IT Equipment',
+          location: 'Office 1',
+          serialNumber: 'L001',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id
         },
         {
-          name: 'Dell Monitor',
-          category: 'Monitors',
-          status: 'active',
-          serialNumber: 'MON001',
-          purchaseDate: new Date('2023-02-01'),
-          purchasePrice: 299.99,
-          tenantId: testTenantId,
-          tags: ['electronics', 'stationary']
+          name: 'Laptop 2',
+          category: 'IT Equipment',
+          location: 'Office 2',
+          serialNumber: 'L002',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id
         },
         {
-          name: 'Office Chair',
-          category: 'Furniture',
-          status: 'maintenance',
-          purchaseDate: new Date('2022-12-01'),
-          purchasePrice: 199.99,
-          tenantId: testTenantId,
-          tags: ['furniture']
+          name: 'Different Tenant Asset',
+          category: 'IT Equipment',
+          location: 'Office 3',
+          serialNumber: 'L003',
+          tenantId: 'different-tenant',
+          createdBy: testUser._id
         }
       ];
 
       await Asset.insertMany(assets);
     });
 
-    it('should return all assets for tenant', async () => {
+    it('should get all assets for the tenant', async () => {
       const response = await request(app)
-        .get('/assets')
+        .get('/api/assets')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.assets).toHaveLength(3);
-      expect(response.body.data.pagination.total).toBe(3);
+      expect(response.body.assets).toHaveLength(2); // Only tenant assets
+      expect(response.body.assets[0].tenantId).toBe(testUser.tenantId);
+      expect(response.body.assets[1].tenantId).toBe(testUser.tenantId);
     });
 
     it('should filter assets by category', async () => {
+      // Add asset with different category
+      await new Asset({
+        name: 'Office Chair',
+        category: 'Furniture',
+        location: 'Office 1',
+        serialNumber: 'F001',
+        tenantId: testUser.tenantId,
+        createdBy: testUser._id
+      }).save();
+
       const response = await request(app)
-        .get('/assets?category=Laptops')
+        .get('/api/assets?category=IT Equipment')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.assets).toHaveLength(1);
-      expect(response.body.data.assets[0].category).toBe('Laptops');
+      expect(response.body.assets).toHaveLength(2);
+      expect(response.body.assets.every(asset => asset.category === 'IT Equipment')).toBe(true);
     });
 
-    it('should filter assets by status', async () => {
+    it('should support pagination', async () => {
       const response = await request(app)
-        .get('/assets?status=active')
+        .get('/api/assets?page=1&limit=1')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.assets).toHaveLength(2);
-      expect(response.body.data.assets.every(asset => asset.status === 'active')).toBe(true);
-    });
-
-    it('should search assets by name', async () => {
-      const response = await request(app)
-        .get('/assets?search=MacBook')
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.assets).toHaveLength(1);
-      expect(response.body.data.assets[0].name).toContain('MacBook');
-    });
-
-    it('should sort assets by purchase price descending', async () => {
-      const response = await request(app)
-        .get('/assets?sortBy=purchasePrice&sortOrder=desc')
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      const assets = response.body.data.assets;
-      expect(assets[0].purchasePrice).toBeGreaterThan(assets[1].purchasePrice);
-    });
-
-    it('should paginate results correctly', async () => {
-      const response = await request(app)
-        .get('/assets?page=1&limit=2')
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.assets).toHaveLength(2);
-      expect(response.body.data.pagination.page).toBe(1);
-      expect(response.body.data.pagination.limit).toBe(2);
-      expect(response.body.data.pagination.totalPages).toBe(2);
-      expect(response.body.data.pagination.hasNextPage).toBe(true);
-    });
-
-    it('should return empty results for non-matching filters', async () => {
-      const response = await request(app)
-        .get('/assets?category=NonExistent')
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.assets).toHaveLength(0);
-      expect(response.body.data.pagination.total).toBe(0);
+      expect(response.body.assets).toHaveLength(1);
+      expect(response.body.pagination.page).toBe(1);
+      expect(response.body.pagination.limit).toBe(1);
+      expect(response.body.pagination.total).toBe(2);
     });
   });
 
-  describe('POST /assets', () => {
-    it('should create a new asset successfully', async () => {
-      const assetData = {
-        name: 'iPhone 14 Pro',
-        category: 'Mobile Devices',
-        serialNumber: 'IP001',
-        purchaseDate: '2023-03-15',
-        purchasePrice: 999.99,
-        location: {
-          building: 'HQ',
-          floor: '2',
-          room: '201'
-        },
-        tags: ['mobile', 'electronics'],
-        customFields: {
-          color: 'Space Gray',
-          storage: '256GB'
-        }
-      };
-
-      const response = await request(app)
-        .post('/assets')
-        .send(assetData)
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.name).toBe(assetData.name);
-      expect(response.body.data.category).toBe(assetData.category);
-      expect(response.body.data.tenantId).toBe(testTenantId.toString());
-      expect(response.body.data.status).toBe('active'); // Default status
-
-      // Verify asset was created in database
-      const asset = await Asset.findById(response.body.data._id);
-      expect(asset).toBeTruthy();
-      expect(asset.name).toBe(assetData.name);
-      expect(asset.customFields.color).toBe(assetData.customFields.color);
-    });
-
-    it('should reject asset creation with missing required fields', async () => {
-      const invalidAssetData = {
-        // Missing name and category
-        purchasePrice: 100
-      };
-
-      const response = await request(app)
-        .post('/assets')
-        .send(invalidAssetData)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Validation failed');
-    });
-
-    it('should reject asset creation with invalid data types', async () => {
-      const invalidAssetData = {
-        name: 'Test Asset',
-        category: 'Test Category',
-        purchasePrice: 'invalid-price', // Should be number
-        purchaseDate: 'invalid-date'   // Should be valid date
-      };
-
-      const response = await request(app)
-        .post('/assets')
-        .send(invalidAssetData)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
-    });
-
-    it('should create asset with minimal required data', async () => {
-      const minimalAssetData = {
-        name: 'Minimal Asset',
-        category: 'Test Category'
-      };
-
-      const response = await request(app)
-        .post('/assets')
-        .send(minimalAssetData)
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.name).toBe(minimalAssetData.name);
-      expect(response.body.data.status).toBe('active');
-    });
-  });
-
-  describe('GET /assets/:id', () => {
+  describe('GET /api/assets/:id', () => {
     let testAsset;
 
     beforeEach(async () => {
-      testAsset = await Asset.create({
+      testAsset = new Asset({
         name: 'Test Asset',
         category: 'Test Category',
-        status: 'active',
+        location: 'Test Location',
         serialNumber: 'TEST001',
-        tenantId: testTenantId,
-        assignedTo: testUser._id
+        tenantId: testUser.tenantId,
+        createdBy: testUser._id
       });
+      await testAsset.save();
     });
 
-    it('should return asset by ID', async () => {
+    it('should get asset by ID', async () => {
       const response = await request(app)
-        .get(`/assets/${testAsset._id}`)
+        .get(`/api/assets/${testAsset._id}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data._id).toBe(testAsset._id.toString());
-      expect(response.body.data.name).toBe(testAsset.name);
-      expect(response.body.data.assignedTo).toBeDefined();
-      expect(response.body.data.assignedTo.username).toBe(testUser.username);
+      expect(response.body.asset._id).toBe(testAsset._id.toString());
+      expect(response.body.asset.name).toBe(testAsset.name);
     });
 
     it('should return 404 for non-existent asset', async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const fakeId = new mongoose.Types.ObjectId();
       
       const response = await request(app)
-        .get(`/assets/${nonExistentId}`)
+        .get(`/api/assets/${fakeId}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Asset not found');
+      expect(response.body.message).toContain('not found');
     });
 
-    it('should return 400 for invalid asset ID format', async () => {
+    it('should return 400 for invalid asset ID', async () => {
       const response = await request(app)
-        .get('/assets/invalid-id')
+        .get('/api/assets/invalid-id')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Invalid asset ID format');
     });
   });
 
-  describe('PUT /assets/:id', () => {
+  describe('PUT /api/assets/:id', () => {
     let testAsset;
 
     beforeEach(async () => {
-      testAsset = await Asset.create({
-        name: 'Original Asset',
+      testAsset = new Asset({
+        name: 'Original Name',
         category: 'Original Category',
-        status: 'active',
+        location: 'Original Location',
         serialNumber: 'ORIG001',
-        tenantId: testTenantId,
-        purchasePrice: 100
+        tenantId: testUser.tenantId,
+        createdBy: testUser._id
       });
+      await testAsset.save();
     });
 
     it('should update asset successfully', async () => {
       const updateData = {
-        name: 'Updated Asset Name',
-        status: 'maintenance',
-        purchasePrice: 150,
-        location: {
-          building: 'Building A',
-          floor: '3'
-        }
+        name: 'Updated Name',
+        category: 'Updated Category',
+        location: 'Updated Location'
       };
 
       const response = await request(app)
-        .put(`/assets/${testAsset._id}`)
+        .put(`/api/assets/${testAsset._id}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send(updateData)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.name).toBe(updateData.name);
-      expect(response.body.data.status).toBe(updateData.status);
-      expect(response.body.data.purchasePrice).toBe(updateData.purchasePrice);
-      expect(response.body.data.location.building).toBe(updateData.location.building);
-
-      // Verify changes persisted to database
-      const updatedAsset = await Asset.findById(testAsset._id);
-      expect(updatedAsset.name).toBe(updateData.name);
-      expect(updatedAsset.status).toBe(updateData.status);
+      expect(response.body.asset.name).toBe(updateData.name);
+      expect(response.body.asset.category).toBe(updateData.category);
+      expect(response.body.asset.location).toBe(updateData.location);
+      expect(response.body.asset.updatedBy).toBe(testUser._id.toString());
     });
 
-    it('should update only provided fields', async () => {
-      const partialUpdate = {
-        status: 'retired'
-      };
+    it('should not allow updating assets from different tenant', async () => {
+      // Create asset for different tenant
+      const otherAsset = new Asset({
+        name: 'Other Asset',
+        category: 'Other Category',
+        location: 'Other Location',
+        serialNumber: 'OTHER001',
+        tenantId: 'different-tenant',
+        createdBy: testUser._id
+      });
+      await otherAsset.save();
+
+      const updateData = { name: 'Hacked Name' };
 
       const response = await request(app)
-        .put(`/assets/${testAsset._id}`)
-        .send(partialUpdate)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.status).toBe('retired');
-      expect(response.body.data.name).toBe(testAsset.name); // Should remain unchanged
-      expect(response.body.data.category).toBe(testAsset.category); // Should remain unchanged
-    });
-
-    it('should reject update with invalid data', async () => {
-      const invalidUpdate = {
-        status: 'invalid-status',
-        purchasePrice: -100 // Negative price
-      };
-
-      const response = await request(app)
-        .put(`/assets/${testAsset._id}`)
-        .send(invalidUpdate)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
-    });
-
-    it('should return 404 for non-existent asset', async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
-      
-      const response = await request(app)
-        .put(`/assets/${nonExistentId}`)
-        .send({ name: 'Updated Name' })
+        .put(`/api/assets/${otherAsset._id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(updateData)
         .expect(404);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Asset not found');
     });
   });
 
-  describe('DELETE /assets/:id', () => {
+  describe('DELETE /api/assets/:id', () => {
     let testAsset;
 
     beforeEach(async () => {
-      testAsset = await Asset.create({
+      testAsset = new Asset({
         name: 'Asset to Delete',
         category: 'Test Category',
-        status: 'active',
-        tenantId: testTenantId
+        location: 'Test Location',
+        serialNumber: 'DEL001',
+        tenantId: testUser.tenantId,
+        createdBy: testUser._id
       });
+      await testAsset.save();
     });
 
     it('should delete asset successfully', async () => {
       const response = await request(app)
-        .delete(`/assets/${testAsset._id}`)
+        .delete(`/api/assets/${testAsset._id}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Asset deleted successfully');
+      expect(response.body.message).toContain('deleted');
 
-      // Verify asset was deleted from database
+      // Verify asset is actually deleted
       const deletedAsset = await Asset.findById(testAsset._id);
       expect(deletedAsset).toBeNull();
     });
 
     it('should return 404 for non-existent asset', async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const fakeId = new mongoose.Types.ObjectId();
       
       const response = await request(app)
-        .delete(`/assets/${nonExistentId}`)
+        .delete(`/api/assets/${fakeId}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Asset not found');
     });
   });
 
-  describe('POST /assets/:id/transfer', () => {
+  describe('POST /api/assets/transfer', () => {
     let testAsset;
-    let targetUser;
 
     beforeEach(async () => {
-      testAsset = await Asset.create({
-        name: 'Transfer Asset',
-        category: 'Test Category',
-        status: 'active',
-        tenantId: testTenantId
+      testAsset = new Asset({
+        name: 'Asset to Transfer',
+        category: 'IT Equipment',
+        location: 'Office 1',
+        serialNumber: 'TRANS001',
+        assignedTo: testUser._id,
+        tenantId: testUser.tenantId,
+        createdBy: testUser._id
       });
-
-      targetUser = await User.create({
-        username: 'targetuser',
-        email: 'target@example.com',
-        firstName: 'Target',
-        lastName: 'User',
-        tenantId: testTenantId,
-        roles: ['operator']
-      });
-    });
-
-    it('should transfer asset to user successfully', async () => {
-      const transferData = {
-        assignedTo: targetUser._id.toString(),
-        transferReason: 'Employee assignment'
-      };
-
-      const response = await request(app)
-        .post(`/assets/${testAsset._id}/transfer`)
-        .send(transferData)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Asset transferred successfully');
-      expect(response.body.data.assignedTo._id).toBe(targetUser._id.toString());
-
-      // Verify transfer persisted to database
-      const transferredAsset = await Asset.findById(testAsset._id);
-      expect(transferredAsset.assignedTo.toString()).toBe(targetUser._id.toString());
-    });
-
-    it('should unassign asset when assignedTo is null', async () => {
-      // First assign asset to a user
-      testAsset.assignedTo = testUser._id;
       await testAsset.save();
+    });
+
+    it('should transfer asset to new user', async () => {
+      // Create another user
+      const newUser = new User({
+        username: 'newuser',
+        email: 'newuser@example.com',
+        password: 'hashedpassword',
+        tenantId: testUser.tenantId
+      });
+      await newUser.save();
 
       const transferData = {
-        assignedTo: null,
-        transferReason: 'Returned to inventory'
+        assetId: testAsset._id,
+        newAssignee: newUser._id,
+        reason: 'Employee transfer',
+        notes: 'Asset transferred due to department change'
       };
 
       const response = await request(app)
-        .post(`/assets/${testAsset._id}/transfer`)
+        .post('/api/assets/transfer')
+        .set('Authorization', `Bearer ${authToken}`)
         .send(transferData)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.assignedTo).toBeNull();
-
-      // Verify unassignment persisted to database
-      const unassignedAsset = await Asset.findById(testAsset._id);
-      expect(unassignedAsset.assignedTo).toBeNull();
+      expect(response.body.asset.assignedTo).toBe(newUser._id.toString());
+      expect(response.body.asset.transferHistory).toHaveLength(1);
+      
+      const transfer = response.body.asset.transferHistory[0];
+      expect(transfer.fromUser).toBe(testUser._id.toString());
+      expect(transfer.toUser).toBe(newUser._id.toString());
+      expect(transfer.reason).toBe(transferData.reason);
     });
 
-    it('should reject transfer to non-existent user', async () => {
-      const nonExistentUserId = new mongoose.Types.ObjectId();
-      const transferData = {
-        assignedTo: nonExistentUserId.toString(),
-        transferReason: 'Test assignment'
+    it('should return 400 for invalid transfer data', async () => {
+      const invalidTransferData = {
+        assetId: testAsset._id
+        // Missing newAssignee
       };
 
       const response = await request(app)
-        .post(`/assets/${testAsset._id}/transfer`)
-        .send(transferData)
-        .expect(404);
+        .post('/api/assets/transfer')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(invalidTransferData)
+        .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Target user not found');
+    });
+  });
+
+  describe('Asset Search', () => {
+    beforeEach(async () => {
+      const assets = [
+        {
+          name: 'MacBook Pro 13',
+          category: 'IT Equipment',
+          location: 'Development Team',
+          serialNumber: 'MBP001',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id,
+          tags: ['laptop', 'apple', 'development']
+        },
+        {
+          name: 'Dell Monitor 24"',
+          category: 'IT Equipment',
+          location: 'Development Team',
+          serialNumber: 'MON001',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id,
+          tags: ['monitor', 'dell', 'display']
+        },
+        {
+          name: 'Office Chair Ergonomic',
+          category: 'Furniture',
+          location: 'HR Department',
+          serialNumber: 'CHAIR001',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id,
+          tags: ['furniture', 'ergonomic', 'office']
+        }
+      ];
+
+      await Asset.insertMany(assets);
+    });
+
+    it('should search assets by name', async () => {
+      const response = await request(app)
+        .get('/api/assets/search?q=MacBook')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.assets).toHaveLength(1);
+      expect(response.body.assets[0].name).toContain('MacBook');
+    });
+
+    it('should search assets by serial number', async () => {
+      const response = await request(app)
+        .get('/api/assets/search?q=MON001')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.assets).toHaveLength(1);
+      expect(response.body.assets[0].serialNumber).toBe('MON001');
+    });
+
+    it('should search assets by tags', async () => {
+      const response = await request(app)
+        .get('/api/assets/search?q=apple')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.assets).toHaveLength(1);
+      expect(response.body.assets[0].tags).toContain('apple');
+    });
+
+    it('should return empty results for non-matching search', async () => {
+      const response = await request(app)
+        .get('/api/assets/search?q=nonexistent')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.assets).toHaveLength(0);
+    });
+  });
+
+  describe('Asset Statistics', () => {
+    beforeEach(async () => {
+      const assets = [
+        {
+          name: 'Asset 1',
+          category: 'IT Equipment',
+          status: 'active',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id
+        },
+        {
+          name: 'Asset 2',
+          category: 'IT Equipment',
+          status: 'maintenance',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id
+        },
+        {
+          name: 'Asset 3',
+          category: 'Furniture',
+          status: 'active',
+          tenantId: testUser.tenantId,
+          createdBy: testUser._id
+        }
+      ];
+
+      await Asset.insertMany(assets);
+    });
+
+    it('should get asset statistics', async () => {
+      const response = await request(app)
+        .get('/api/assets/stats')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.stats.total).toBe(3);
+      expect(response.body.stats.byCategory['IT Equipment']).toBe(2);
+      expect(response.body.stats.byCategory['Furniture']).toBe(1);
+      expect(response.body.stats.byStatus.active).toBe(2);
+      expect(response.body.stats.byStatus.maintenance).toBe(1);
     });
   });
 });

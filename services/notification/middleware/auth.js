@@ -1,8 +1,19 @@
 const jwt = require('jsonwebtoken');
-const logger = require('../logger/logger');
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'logs/auth.log' })
+  ]
+});
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m';
 
 if (!JWT_SECRET) {
   logger.error('JWT_SECRET environment variable is not set');
@@ -78,58 +89,6 @@ function verifyToken(req, res, next) {
   }
 }
 
-// Role-based access control middleware
-function requireRole(roles = []) {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        code: 'NOT_AUTHENTICATED'
-      });
-    }
-
-    const userRole = req.user.role;
-    const allowedRoles = Array.isArray(roles) ? roles : [roles];
-    
-    if (!allowedRoles.includes(userRole)) {
-      logger.warn('Unauthorized access attempt', {
-        userId: req.user.userId,
-        userRole,
-        requiredRoles: allowedRoles,
-        resource: req.originalUrl
-      });
-      
-      return res.status(403).json({ 
-        error: 'Insufficient permissions',
-        message: 'You do not have permission to access this resource',
-        code: 'INSUFFICIENT_PERMISSIONS'
-      });
-    }
-
-    next();
-  };
-}
-
-// Multi-tenancy middleware
-function requireTenant(req, res, next) {
-  const tenantId = req.headers['x-tenant-id'] || req.user?.tenantId;
-  
-  if (!tenantId) {
-    return res.status(400).json({
-      error: 'Tenant required',
-      message: 'Tenant ID must be provided',
-      code: 'MISSING_TENANT'
-    });
-  }
-  
-  req.tenantId = tenantId;
-  next();
-}
-
 module.exports = {
-  verifyToken,
-  requireRole,
-  requireTenant,
-  JWT_SECRET,
-  JWT_EXPIRY
+  verifyToken
 };
